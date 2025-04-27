@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pong Game</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body { background: black; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    canvas { background: #222; display: none; }
+    .container { text-align: center; }
+    .btn { margin: 5px; }
+    h3 { color: white; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div id="mode-selection">
+    <h3>Choose Game Mode:</h3>
+    <button id="bot-mode" class="btn btn-primary">1 Player (Bot)</button>
+    <button id="player-mode" class="btn btn-success">2 Players</button>
+  </div>
+
+  <canvas id="canvas" width="600" height="400"></canvas>
+
+  <div id="controls" style="margin-top: 10px; display:none;">
+    <button id="start-btn" class="btn btn-primary">Start</button>
+    <button id="pause-btn" class="btn btn-warning">Pause</button>
+    <button id="restart-btn" class="btn btn-danger">Restart</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="message-modal" tabindex="-1" aria-labelledby="messageLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title" id="messageLabel">Game Over</h5>
+        <button type="button" class="close" id="message-modal-close" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="message"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+// JavaScript Starts Here
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+var startBtn = document.getElementById("start-btn");
+var pauseBtn = document.getElementById("pause-btn");
+var restartBtn = document.getElementById("restart-btn");
+var botModeBtn = document.getElementById("bot-mode");
+var playerModeBtn = document.getElementById("player-mode");
+
+var animationId;
+var gameRunning = false;
+var playWithBot = true;
+
+var ballRadius = 10;
+var ballX = canvas.width / 2;
+var ballY = canvas.height / 2;
+var ballSpeedX = 3;
+var ballSpeedY = 3;
+var paddleHeight = 80;
+var paddleWidth = 10;
+var leftPaddleY = canvas.height / 2 - paddleHeight / 2;
+var rightPaddleY = canvas.height / 2 - paddleHeight / 2;
+var paddleSpeed = 10;
+var leftPlayerScore = 0;
+var rightPlayerScore = 0;
+var maxScore = 10;
+
+let wPressed = false, sPressed = false;
+let upPressed = false, downPressed = false;
+
+botModeBtn.addEventListener("click", function() {
+  playWithBot = true;
+  document.getElementById("mode-selection").style.display = "none";
+  canvas.style.display = "block";
+  document.getElementById("controls").style.display = "block";
+});
+
+playerModeBtn.addEventListener("click", function() {
+  playWithBot = false;
+  document.getElementById("mode-selection").style.display = "none";
+  canvas.style.display = "block";
+  document.getElementById("controls").style.display = "block";
+});
+
+startBtn.addEventListener("click", function() {
+  if (!gameRunning) {
+    gameRunning = true;
+    loop();
+  }
+});
+
+pauseBtn.addEventListener("click", function() {
+  gameRunning = false;
+  cancelAnimationFrame(animationId);
+});
+
+restartBtn.addEventListener("click", function() {
+  document.location.reload();
+});
+
+addEventListener("load", () => {
+  draw();
+});
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "w") wPressed = true;
+  else if (e.key === "s") sPressed = true;
+  else if (e.key === "ArrowUp") upPressed = true;
+  else if (e.key === "ArrowDown") downPressed = true;
+});
+
+document.addEventListener("keyup", function(e) {
+  if (e.key === "w") wPressed = false;
+  else if (e.key === "s") sPressed = false;
+  else if (e.key === "ArrowUp") upPressed = false;
+  else if (e.key === "ArrowDown") downPressed = false;
+});
+
+function update() {
+  if (wPressed && leftPaddleY > 0) leftPaddleY -= paddleSpeed;
+  else if (sPressed && leftPaddleY + paddleHeight < canvas.height) leftPaddleY += paddleSpeed;
+
+  if (playWithBot) {
+    let botCenter = rightPaddleY + paddleHeight / 2;
+    if (botCenter < ballY - 10) rightPaddleY += 2;
+    else if (botCenter > ballY + 10) rightPaddleY -= 2;
+  } else {
+    if (upPressed && rightPaddleY > 0) rightPaddleY -= paddleSpeed;
+    else if (downPressed && rightPaddleY + paddleHeight < canvas.height) rightPaddleY += paddleSpeed;
+  }
+
+  ballX += ballSpeedX;
+  ballY += ballSpeedY;
+
+  if (ballY - ballRadius < 0 || ballY + ballRadius > canvas.height) ballSpeedY = -ballSpeedY;
+
+  if (ballX - ballRadius < paddleWidth && ballY > leftPaddleY && ballY < leftPaddleY + paddleHeight)
+    ballSpeedX = -ballSpeedX;
+  if (ballX + ballRadius > canvas.width - paddleWidth && ballY > rightPaddleY && ballY < rightPaddleY + paddleHeight)
+    ballSpeedX = -ballSpeedX;
+
+  if (ballX < 0) { rightPlayerScore++; reset(); }
+  else if (ballX > canvas.width) { leftPlayerScore++; reset(); }
+
+  if (leftPlayerScore === maxScore) playerWin("Left Player");
+  else if (rightPlayerScore === maxScore) playerWin(playWithBot ? "Bot" : "Right Player");
+}
+
+function playerWin(player) {
+  var message = "Congratulations! " + player + " wins!";
+  $('#message').text(message);
+  $('#message-modal').modal('show');
+  reset();
+}
+
+function reset() {
+  ballX = canvas.width / 2;
+  ballY = canvas.height / 2;
+  ballSpeedX = -ballSpeedX;
+  ballSpeedY = Math.random() * 4 - 2;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#FFF";
+  ctx.font = "15px Arial";
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, 0);
+  ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.strokeStyle = "#FFF";
+  ctx.stroke();
+  ctx.closePath();
+  ctx.beginPath();
+  ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.closePath();
+  ctx.fillRect(0, leftPaddleY, paddleWidth, paddleHeight);
+  ctx.fillRect(canvas.width - paddleWidth, rightPaddleY, paddleWidth, paddleHeight);
+  ctx.fillText("Score: " + leftPlayerScore, 10, 20);
+  ctx.fillText("Score: " + rightPlayerScore, canvas.width - 70, 20);
+}
+
+function loop() {
+  update();
+  draw();
+  animationId = requestAnimationFrame(loop);
+}
+
+$('#message-modal-close').on('click', function() {
+  document.location.reload();
+});
+</script>
+
+</body>
+</html>
